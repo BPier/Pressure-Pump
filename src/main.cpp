@@ -7,7 +7,7 @@
 ==============================*/
 
 // ==== User Variable ====
-const int SetupTimer = 5000; //Maximum number of milliseconds that the setup should last
+const int SetupTimer = 15000; //Maximum number of milliseconds that the setup should last
 const float PressureMin = 1.4; // Pressure at wich the pump will start in bar
 const float PressureMax = 3; // Minimum running pressure of the pump. The pump will not stop unless this pressure is achieved in bar
 
@@ -39,8 +39,8 @@ float PressureValue = 0;
 // === Warning Variable ===
 // --- Low Pressure ---
 bool LowPressureWarning = false;
-int LowPressureTime = 0;
-const int LowPressureWarningDelay = 5000;
+unsigned long LowPressureTime = 0;
+const unsigned int LowPressureWarningDelay = 5000;
 
 // Variable For Display
 int Display = 2; // 1 for terminal output, 2 for excel export
@@ -208,10 +208,10 @@ void StopPump()
 // If there is no water the pump will be running but the pressure will stay low and the flow will be low or equal to 0. Same thing if the pump has a problem
 void LowPressureWarningTest()
 {
-  if(PumpRunning && !LowPressureWarning &&(PressureValue<=PressureMax))
+  if(PumpRunning && !LowPressureWarning &&(PressureValue<PressureMax))
   {
-    LowPressureWarning==true;
-    LowPressureTime==currentTime;
+    LowPressureWarning=true;
+    LowPressureTime=currentTime;
   }
   if(LowPressureWarning && ((currentTime-LowPressureTime)>=LowPressureWarningDelay))
   {
@@ -221,6 +221,10 @@ void LowPressureWarningTest()
     {
       DisplayStatus(status,pinLED);
     }
+  }
+  if(PressureValue>=PressureMax)
+  {
+    LowPressureWarning=false;
   }
 }
 /* ======================
