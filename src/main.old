@@ -1,0 +1,296 @@
+#include <Arduino.h>
+#include <LEDStatusLibrary.h>
+// == Pin List ==
+//   -- OUTPUT --
+const char PinMotor = 5;
+const char LEDPin[] = {12,11,10,9};
+
+//   -- INPUT --
+const char flowsensorPin = 2; // Flow Sensor Input
+const char pressurePin = A4; // Pressure Sensor Input
+
+
+// Flow variables
+volatile int flow_frequency; // Measures flow sensor pulses
+unsigned int l_hour; // Calculated litres/hour
+int FlowValue=0;
+
+
+// Pressure Variables
+int PressureValue =0;
+const int PressureLimit = 15;
+
+// Time Variable
+unsigned long currentTime;
+unsigned long cloopTime,xTime;
+const int TimePeriod=1000;
+
+// Pump Variable
+bool PumpRunning=false;
+
+// Status Variable
+int StatusDigit[]={9,9,9,9};
+int *PointerStatusDigit = &StatusDigit[0];
+
+// Function declaration
+void setupPressure();
+int GetPressure();
+void setupFlow();
+int GetFlow();
+void flow ();
+void Display(int FlowX,int PressureX);
+void SetupSequence();
+void StartPump();
+void StopPump();
+void DisplayStatus();
+void SetStatus(int status); 
+void SetStatusPointer(int status, int pointer);
+
+void setup()
+{
+  Serial.begin(9600);
+  Serial.println("=========================");
+  Serial.println("Reset ...");
+  Serial.println(*PointerStatusDigit);
+  SetStatus(1000);
+  Serial.println(*PointerStatusDigit);
+  SetStatusPointer();
+  pinMode(PinMotor,OUTPUT); 
+  setupFlow();
+  setupPressure();
+  currentTime = millis();
+  cloopTime = currentTime;
+  SetupSequence();
+  Serial.println("Done");
+  Serial.println("=========================");
+
+  
+}
+
+void loop ()
+{
+  currentTime = millis();
+  //Each seconds measure the pressure and flow
+  if((currentTime - cloopTime) >= TimePeriod)
+  {
+    cloopTime = currentTime; // Updates cloopTime
+    
+    //Measure Flow
+    FlowValue=GetFlow();
+    
+    //Measure Pressure
+    PressureValue = GetPressure();
+
+    //Display Flow and Pressure
+    Display(FlowValue,PressureValue);
+    if(PumpRunning==false)
+    {
+      if(FlowValue>1)
+      {  
+        if(GetFlow()>1) // Second check
+        {
+          StartPump();
+        }
+      }
+      if(PressureValue<=15)
+      {
+        if(GetPressure()<=15) // Second check
+        {
+          StartPump();
+        }
+      }
+    }
+    if(PumpRunning==true)
+      if(FlowValue<=1)
+      {
+        if(GetFlow()<=1) // Second check
+        {
+          StopPump();
+        }
+      }
+  }
+}
+
+/*
+Pressure Sensor
+*/
+void setupPressure()
+{
+  pinMode(pressurePin, INPUT);
+  
+}
+
+int GetPressure()
+{
+  int pressure = analogRead(pressurePin); //read the pressure
+  pressure = pressure*5000/1024; //voltage
+  pressure = 0.0075*pressure - 3.750;
+  return pressure;
+}
+/*
+YF‐ S201 Water Flow Sensor
+Water Flow Sensor output processed to read in litres/hour
+*/
+void setupFlow()
+{
+  
+  pinMode(flowsensorPin, INPUT);
+  digitalWrite(flowsensorPin, HIGH); // Optional Internal Pull-Up
+  attachInterrupt(0, flow, RISING); // Setup Interrupt
+  sei(); // Enable interrupts
+
+}
+
+int GetFlow()
+{
+  // Pulse frequency (Hz) = 11Q, Q is flow rate in L/min.
+  l_hour = (flow_frequency * 60 / 11); // (Pulse frequency x 60 min) / 11Q = flowrate in L/hour
+  flow_frequency = 0; // Reset Counter
+  return(l_hour);
+}
+void flow () // Interrupt function
+{
+   flow_frequency++;
+}
+/* ===============================
+Display for Monitor
+================================== */
+//void Display(int FlowX,int PressureX)
+//{
+//  Serial.println("-------");
+//  Serial.print(FlowX, DEC); // Print litres/hour
+//  Serial.println(" L/hour");
+//  Serial.print(PressureX); // Print pressure
+//  Serial.println(" PSI");
+//  Serial.print("Pump Status: ");
+//  Serial.println(PumpRunning);
+//}
+/* ===============================
+Display for Plotter
+================================== */
+void Display(int FlowX,int PressureX)
+{
+  int Flowdivided=FlowX/50;
+  int Pumpten=PumpRunning*32;
+  Serial.print("Flow-");Serial.print(FlowX, DEC);Serial.print("_l/hour:"); Serial.print(Flowdivided, DEC); Serial.print(", ");
+  Serial.print("Pressure-"); Serial.print(PressureX);Serial.print("_PSI:");Serial.print(PressureX); Serial.print(", ");
+  Serial.print("PumpStatus-"); Serial.print(PumpRunning);Serial.print(":");Serial.print(Pumpten); Serial.print(", ");
+  Serial.println();
+}
+/* ===============================
+Pump running functions
+================================== */
+
+// Sequence at setup to start the motor and check if pressure is going up
+void SetupSequence()
+{
+  unsigned long xTime;
+  xTime=millis();
+  StartPump();
+  delay(1000);
+  
+  while((millis()-xTime) < 5000)
+  {
+    //Measure Flow
+    FlowValue=GetFlow();
+    
+    //Measure Pressure
+    PressureValue = GetPressure();
+
+    //Display Flow and Pressure
+    Display(FlowValue,PressureValue);
+    
+    if (PressureValue > 15)
+    {
+      StopPump();
+      return;
+    }
+    currentTime = millis();
+    DisplayStatus();
+  }
+  StopPump();
+  SetStatus(9333);
+  Serial.print(StatusDigit[0]);Serial.print(StatusDigit[1]);Serial.print(StatusDigit[2]);Serial.println(StatusDigit[3]);
+  while(1)
+  {
+    DisplayStatus();
+  }
+
+}
+
+// Starting the pump
+void StartPump()
+{
+  digitalWrite(PinMotor,HIGH);
+  PumpRunning=true;
+  SetStatus(2000);
+  DisplayStatus();
+  return;
+}
+
+// Stopping the pump
+void StopPump()
+{
+  digitalWrite(PinMotor,LOW);
+  PumpRunning=false;
+  SetStatus(1000);
+  DisplayStatus();
+  return;
+}
+
+// // ERROR CODE
+// void ERROR(int errorcode)
+// {
+//   StopPump();
+//   switch(errorcode)
+//   {
+//     case 0: // This error shoud not be used
+//       Serial.println("ERROR : This error should not be used");
+//       break;
+//     case 1: // The pump didn't manage to reach the desired pressure during the preset
+//       Serial.print(GetPressure());
+//       Serial.println("PSI");
+//       Serial.println("===== -!- ERROR : NO ENOUGH PRESSURE DURING PRESET =====");
+//       break;
+//     case 2:
+//       Serial.print(GetPressure());
+//       Serial.println("PSI");
+//       Serial.println("===== -!- ERROR : NO ENOUGH PRESSURE DURING RUN =====");
+//       break;
+//   }
+//   while(1) {
+//     // Infinite loop until reset
+//   }
+// }
+
+// Function to display the error On the LED
+void DisplayStatus() {
+  for (int i=0; i<4; i++)
+  {
+    switch (StatusDigit[i]) {
+      case 9:
+        digitalWrite(LEDPin[i], LOW);
+        break;
+      case 1:
+        digitalWrite(LEDPin[i], HIGH);
+        break;
+      case 2:
+        digitalWrite(LEDPin[i], (millis() / 1000) % 2);
+        break;
+      case 3:
+        digitalWrite(LEDPin[i], (millis() / 250) % 2);
+        break;
+
+    }
+  }
+}
+
+// Function to Set Up the error mode
+void SetStatus(int status) {
+  StatusDigit[0]=status/1000;
+  StatusDigit[1]=((status/100)%10);
+  StatusDigit[2]=((status/10)%10);
+  StatusDigit[3]=(status%10);
+  DisplayStatus();
+  return;
+}
