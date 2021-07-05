@@ -1,0 +1,32 @@
+=================================
+======= Error Code List =========
+=================================
+
+Blinking description
+1 - Turned Off
+2 - Turned On
+3 - Blink SLowly not to be used
+4 - Blink Fast
+5 - Fade Slowly
+
+
+------ Green LED ------
+1XXX - Pump is off and system is off
+2XXX - Pump is currently Running
+3XXX - Reset in progress
+5XXX - Pump is on standby
+
+------ Red LED ------
+
+X111 - Everything is ok
+X444 - Reset Failed
+X511 - Pump is running but pressure is Low
+X411 - Pump stopped because the pressure stayed low for more than X seconds.
+X151 - Pump have been starting and stopping frequently
+X141 - Pump is stopped because it's been stopping and starting too frequently
+
+
+2111 - Pump Running Normally
+3333 - Reset Running
+1444 - Reset Failed
+1334 - Low Pressure for mor than 5s -  Pump stopped
