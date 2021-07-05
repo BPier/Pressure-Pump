@@ -8,6 +8,8 @@
 
 // ==== User Variable ====
 const int SetupTimer = 15000; //Maximum number of milliseconds that the setup should last
+const int SetupTry = 3; // numbre of time that the setup will restart
+const int SetupDelay = 2000; // Delay between setup trials
 const float PressureMin = 1.4; // Pressure at wich the pump will start in bar
 const float PressureMax = 3; // Minimum running pressure of the pump. The pump will not stop unless this pressure is achieved in bar
 
@@ -40,7 +42,7 @@ float PressureValue = 0;
 // --- Low Pressure ---
 bool LowPressureWarning = false;
 unsigned long LowPressureTime = 0;
-const unsigned int LowPressureWarningDelay = 5000;
+const unsigned int LowPressureWarningDelay = 4000;
 
 // Variable For Display
 int Display = 2; // 1 for terminal output, 2 for excel export
@@ -162,14 +164,17 @@ void SetupSequence()
     unsigned long TimeStartSetup = millis();
     StartPump();
     delay(1000);
-    while((millis()-TimeStartSetup) < 5000)
+    for(int i = 1;i<=SetupTry;i++)
     {
-      PressureValue = GetPressure(pinPressureSensor);
-      if (PressureValue>=PressureMax)
+      while((millis()-TimeStartSetup) < SetupTimer)
       {
-        StopPump();
-        Serial.print("Reset Successful - Pressure = ");Serial.print(PressureValue);Serial.print(" bar");
-        return;
+        PressureValue = GetPressure(pinPressureSensor);
+        if (PressureValue>=PressureMax)
+        {
+          StopPump();
+          Serial.print("Reset Successful - Pressure = ");Serial.print(PressureValue);Serial.print(" bar");
+          return;
+        }
       }
     }
     StopPump();
@@ -208,7 +213,7 @@ void StopPump()
 // If there is no water the pump will be running but the pressure will stay low and the flow will be low or equal to 0. Same thing if the pump has a problem
 void LowPressureWarningTest()
 {
-  if(PumpRunning && !LowPressureWarning &&(PressureValue<PressureMax))
+  if(PumpRunning && !LowPressureWarning &&(PressureValue<(PressureMax*.8)) && (FlowValue<20))
   {
     LowPressureWarning=true;
     LowPressureTime=currentTime;
@@ -222,7 +227,7 @@ void LowPressureWarningTest()
       DisplayStatus(status,pinLED);
     }
   }
-  if(PressureValue>=PressureMax)
+  if((PressureValue>=PressureMax) || (FlowValue>30))
   {
     LowPressureWarning=false;
   }
