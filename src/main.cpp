@@ -50,7 +50,7 @@ int Display = 2; // 1 for terminal output, 2 for excel export
 ==== Functions definition ====
 ==============================*/
 
-// ==== Flow Funtion =====
+// ==== Flow Funtion ======
 void flow ();
 void SetupFlowSensor(const int PinSensor);
 int GetFlow();
