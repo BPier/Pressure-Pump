@@ -208,7 +208,7 @@ void StopPump()
 // If there is no water the pump will be running but the pressure will stay low and the flow will be low or equal to 0. Same thing if the pump has a problem
 void LowPressureWarningTest()
 {
-  if(PumpRunning && !LowPressureWarning &&(PressureValue<PressureMax))
+  if(PumpRunning && !LowPressureWarning &&(PressureValue<(PressureMax*.8)) && (FlowValue<20))
   {
     LowPressureWarning=true;
     LowPressureTime=currentTime;
@@ -222,7 +222,7 @@ void LowPressureWarningTest()
       DisplayStatus(status,pinLED);
     }
   }
-  if(PressureValue>=PressureMax)
+  if((PressureValue>=PressureMax) || (FlowValue>30))
   {
     LowPressureWarning=false;
   }
